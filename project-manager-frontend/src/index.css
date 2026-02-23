@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'primereact/resources/themes/lara-light-blue/theme.css';
+@import 'primereact/resources/primereact.min.css';
+@import 'primeicons/primeicons.css';
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #f8fafc;
+}
+
+.p-datatable .p-datatable-thead > tr > th {
+  background-color: #f1f5f9 !important;
+  font-weight: 600;
+}
+
+.p-card {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+.p-inputtext,
+.p-inputtextarea {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  padding: 0.6rem 0.75rem !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.p-dropdown {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.p-dropdown .p-inputtext {
+  border: none !important;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.p-dropdown .p-dropdown-trigger {
+  border-left: 1px solid #e5e7eb !important;
+}
+
+.p-calendar {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.p-calendar .p-inputtext {
+  border: none !important;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.p-inputnumber {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.p-inputnumber .p-inputtext {
+  border: none !important;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.p-autocomplete {
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.p-autocomplete .p-inputtext,
+.p-autocomplete .p-autocomplete-multiple-container {
+  border: none !important;
+}
+
+.p-autocomplete-multiple-container {
+  padding: 0.35rem 0.5rem !important;
+  min-height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 0.25rem !important;
+}
+
+.p-autocomplete-multiple-container .p-autocomplete-input-token input {
+  padding: 0.2rem 0 !important;
+  font-size: 0.875rem !important;
+}
+
+.p-inputtext:focus,
+.p-inputtextarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+  outline: none !important;
+}
+
+.p-dropdown.p-focus,
+.p-calendar:has(.p-inputtext:focus),
+.p-inputnumber:has(.p-inputtext:focus),
+.p-autocomplete.p-focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+}
+
+.p-dropdown.p-focus .p-inputtext:focus,
+.p-calendar .p-inputtext:focus,
+.p-inputnumber .p-inputtext:focus,
+.p-autocomplete .p-inputtext:focus {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
