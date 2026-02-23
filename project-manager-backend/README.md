@@ -1,59 +1,168 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Project Manager
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Ứng dụng quản lý dự án - Laravel 12 + React 19.
 
-## About Laravel
+## Yêu cầu hệ thống
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP >= 8.2 (extensions: `pdo_mysql`, `mbstring`, `xml`, `gd`, `fileinfo`)
+- MySQL 5.7+ hoặc SQLite
+- Node.js >= 18 (chỉ cần trên máy local để build)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Cài đặt local (Development)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+# Backend
+cd project-manager-backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan storage:link
 
-## Learning Laravel
+# Frontend
+cd project-manager-frontend
+npm install
+npm start
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Build cho Production
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Chạy script trên máy local (Windows PowerShell):
 
-## Laravel Sponsors
+```powershell
+cd project-manager-backend
+.\build-deploy.ps1
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Script sẽ tự động:
+1. Build React frontend
+2. Copy build vào `public/app/`
+3. Cache Laravel config/route/view
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Deploy lên DirectAdmin (không cần SSH)
 
-## Contributing
+### Bước 1: Tạo Database MySQL
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+1. Đăng nhập **DirectAdmin**
+2. Vào **MySQL Management** → **Create new Database**
+3. Ghi nhớ 3 thông tin: **tên database**, **tên user**, **mật khẩu**
 
-## Code of Conduct
+### Bước 2: Chuẩn bị file `.env`
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Copy `.env.production` thành `.env`, sửa lại:
 
-## Security Vulnerabilities
+```env
+APP_URL=https://yourdomain.com
+APP_KEY=base64:xxxxxxxx  # Lấy từ: php artisan key:generate --show
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ten_database
+DB_USERNAME=ten_user
+DB_PASSWORD=mat_khau
+```
 
-## License
+### Bước 3: Upload lên hosting
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Cấu trúc thư mục trên DirectAdmin:
+
+```
+/home/username/
+├── domains/
+│   └── yourdomain.com/
+│       └── public_html/       ← Document root
+├── project-manager-backend/   ← Upload vào đây
+│   ├── app/
+│   ├── bootstrap/
+│   ├── config/
+│   ├── database/
+│   ├── public/
+│   │   └── app/               ← React build (đã có sẵn)
+│   ├── routes/
+│   ├── storage/
+│   ├── vendor/
+│   └── .env                   ← File đã sửa ở bước 2
+```
+
+**Thực hiện:**
+
+1. Upload thư mục `project-manager-backend` vào `/home/username/` (ngang hàng với `domains/`)
+
+2. Copy **nội dung** thư mục `project-manager-backend/public/` vào `public_html/`:
+   - `index.php`
+   - `.htaccess`
+   - Thư mục `app/`
+
+3. Sửa file `public_html/index.php` — đổi path cho đúng:
+
+```php
+// Tìm dòng:
+require __DIR__.'/../vendor/autoload.php';
+// Đổi thành:
+require __DIR__.'/../project-manager-backend/vendor/autoload.php';
+```
+
+```php
+// Tìm dòng có bootstrap/app.php, đổi thành:
+$app = require_once __DIR__.'/../project-manager-backend/bootstrap/app.php';
+```
+
+4. Copy file `.env` vào `project-manager-backend/`
+
+### Bước 4: Chạy setup qua trình duyệt
+
+Vì không có SSH, truy cập file `setup.php` (đã có sẵn trong `public/`) qua trình duyệt:
+
+1. **Tạo database tables:**
+
+```
+https://yourdomain.com/setup.php?key=xoa-ngay-sau-khi-dung-2026&action=migrate
+```
+
+2. **Tạo storage link:**
+
+```
+https://yourdomain.com/setup.php?key=xoa-ngay-sau-khi-dung-2026&action=storage-link
+```
+
+3. **Cache config:**
+
+```
+https://yourdomain.com/setup.php?key=xoa-ngay-sau-khi-dung-2026&action=cache
+```
+
+### Bước 5: Xóa file setup.php
+
+> **⚠️ BẮT BUỘC:** Vào File Manager, xóa ngay `public_html/setup.php` sau khi chạy xong để đảm bảo bảo mật.
+
+### Xử lý lỗi thường gặp
+
+| Lỗi | Cách sửa |
+|-----|----------|
+| 500 Internal Server Error | Kiểm tra `.env` đã đúng chưa, permission `storage/` → 755 |
+| Page not found (404) | Kiểm tra `.htaccess` trong `public_html/` |
+| Upload ảnh không hoạt động | Chạy lại `setup.php?action=storage-link`, permission `storage/` → 755 |
+| Database connection refused | Kiểm tra thông tin DB trong `.env` |
+| Trang trắng | Vào `storage/logs/laravel.log` xem chi tiết lỗi |
+
+### Phân quyền (nếu cần)
+
+Trong File Manager, đổi permission:
+- `project-manager-backend/storage/` → **755** (recursive)
+- `project-manager-backend/bootstrap/cache/` → **755**
+
+---
+
+## Cập nhật sau này
+
+Khi cần update code mới:
+
+1. Chạy `.\build-deploy.ps1` trên máy local
+2. Upload lại các file đã thay đổi lên hosting
+3. Truy cập `setup.php?action=clear` để xóa cache cũ
+4. Truy cập `setup.php?action=cache` để tạo cache mới
+5. Nếu có migration mới: `setup.php?action=migrate`
+6. **Xóa `setup.php`** sau khi xong
