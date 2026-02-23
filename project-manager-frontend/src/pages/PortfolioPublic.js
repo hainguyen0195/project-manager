@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ExternalLink, X, ChevronLeft, ChevronRight, ArrowLeft, Layers } from 'lucide-react';
 import { portfolioApi, STORAGE_URL } from '../services/api';
 
 export default function PortfolioPublic() {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -74,17 +75,17 @@ export default function PortfolioPublic() {
       {/* Header */}
       <header className="border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 no-underline">
+          <span className="flex items-center gap-2">
             <span className="text-3xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">Cris</span>
             <span className="text-lg font-semibold text-gray-300">HaiNguyen Dev</span>
-          </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white no-underline transition-colors"
+          </span>
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
           >
             <ArrowLeft size={16} />
-            Quản lý
-          </Link>
+            Quay lại
+          </button>
         </div>
       </header>
 

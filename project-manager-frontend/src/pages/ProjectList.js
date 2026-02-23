@@ -4,9 +4,10 @@ import { InputText } from 'primereact/inputtext';
 import { Dropdown } from 'primereact/dropdown';
 import { confirmDialog, ConfirmDialog } from 'primereact/confirmdialog';
 import { Toast } from 'primereact/toast';
-import { Plus, Eye, Pencil, Trash2, AlertTriangle, Clock, FolderKanban, TrendingUp, Wallet, CircleDollarSign, BadgeAlert, Globe, User, Calendar, DollarSign, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
-import { projectApi, clientApi, hostingApi } from '../services/api';
+import { Plus, Eye, Pencil, Trash2, AlertTriangle, Clock, FolderKanban, TrendingUp, Wallet, CircleDollarSign, BadgeAlert, Globe, User, Calendar, DollarSign, ExternalLink, ChevronLeft, ChevronRight, Send, Loader2, Server } from 'lucide-react';
+import { projectApi, clientApi, hostingApi, notificationApi } from '../services/api';
 import { formatCurrency, formatDate, statusLabels, statusColors, paymentLabels, paymentColors } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProjectList() {
   const [projects, setProjects] = useState([]);
@@ -16,14 +17,30 @@ export default function ProjectList() {
   const [stats, setStats] = useState(null);
   const [expiringHosting, setExpiringHosting] = useState([]);
   const [showExpiringPanel, setShowExpiringPanel] = useState(false);
+  const [sendingNotif, setSendingNotif] = useState(null);
   const [searchParams] = useSearchParams();
   const toast = React.useRef(null);
+  const { isAdmin, isEditor } = useAuth();
+
+  const handleSendHostingNotif = async (e, projectId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSendingNotif(projectId);
+    try {
+      const res = await notificationApi.send({ project_id: projectId, type: 'hosting_expiry' });
+      toast.current?.show({ severity: 'success', summary: 'Đã gửi', detail: res.data.message, life: 3000 });
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Lỗi', detail: err.response?.data?.message || 'Gửi thất bại' });
+    } finally {
+      setSendingNotif(null);
+    }
+  };
 
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
-    client_id: searchParams.get('client_id') || '',
-    status: searchParams.get('status') || '',
-    payment_status: searchParams.get('payment_status') || '',
+    client_id: searchParams.get('client_id') || null,
+    status: searchParams.get('status') || null,
+    payment_status: searchParams.get('payment_status') || null,
     page: parseInt(searchParams.get('page')) || 1,
     per_page: 10,
     sort_field: 'created_at',
@@ -35,7 +52,7 @@ export default function ProjectList() {
     try {
       const params = {};
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== '' && value !== null) params[key] = value;
+        if (value !== '' && value !== null && value !== undefined) params[key] = value;
       });
 
       const [projectsRes, statsRes] = await Promise.all([
@@ -83,7 +100,7 @@ export default function ProjectList() {
   };
 
   const statusOptions = [
-    { label: 'Tất cả trạng thái', value: '' },
+    { label: 'Tất cả trạng thái', value: null },
     { label: 'Chờ xử lý', value: 'pending' },
     { label: 'Đang thực hiện', value: 'in_progress' },
     { label: 'Demo', value: 'demo' },
@@ -93,14 +110,15 @@ export default function ProjectList() {
   ];
 
   const paymentOptions = [
-    { label: 'Tất cả thanh toán', value: '' },
-    { label: 'Chưa thanh toán', value: 'unpaid' },
+    { label: 'Tất cả thanh toán', value: null },
+    { label: 'Chưa thanh toán xong', value: 'not_fully_paid' },
+    { label: 'Chưa cọc', value: 'unpaid' },
     { label: 'Đã cọc', value: 'deposit_paid' },
-    { label: 'Đã thanh toán', value: 'fully_paid' },
+    { label: 'Đã thanh toán đủ', value: 'fully_paid' },
   ];
 
   const clientOptions = [
-    { label: 'Tất cả khách hàng', value: '' },
+    { label: 'Tất cả khách hàng', value: null },
     ...clients.map(c => ({ label: c.name, value: c.id })),
   ];
 
@@ -114,13 +132,15 @@ export default function ProjectList() {
           <h2 className="text-2xl font-bold text-gray-900">Danh sách Dự án</h2>
           <p className="text-gray-500 mt-1">Quản lý tất cả dự án của bạn</p>
         </div>
-        <Link
-          to="/projects/new"
-          className="inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors no-underline text-sm font-medium"
-        >
-          <Plus size={18} />
-          Thêm dự án
-        </Link>
+        {isEditor && (
+          <Link
+            to="/projects/new"
+            className="inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors no-underline text-sm font-medium"
+          >
+            <Plus size={18} />
+            Thêm dự án
+          </Link>
+        )}
       </div>
 
       {/* Statistics */}
@@ -193,27 +213,44 @@ export default function ProjectList() {
           {showExpiringPanel && (
             <div className="mt-3 space-y-2">
               {expiringHosting.map(p => (
-                <Link
+                <div
                   key={p.id}
-                  to={`/projects/${p.id}`}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg no-underline transition-colors hover:bg-amber-100 ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
                     p.is_expired ? 'bg-red-50 border border-red-200' : 'bg-white border border-amber-200'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <Link
+                    to={`/projects/${p.id}`}
+                    className="flex items-center gap-2 no-underline flex-1 min-w-0"
+                  >
                     <Clock size={14} className={p.is_expired ? 'text-red-500' : 'text-amber-500'} />
                     <span className="text-sm font-medium text-gray-800">{p.name}</span>
                     <span className="text-xs text-gray-500">({p.client?.name})</span>
+                  </Link>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs font-semibold ${p.is_expired ? 'text-red-600' : 'text-amber-600'}`}>
+                      {p.is_expired
+                        ? `Đã hết hạn ${Math.abs(p.days_until_expiry)} ngày`
+                        : p.days_until_expiry === 0
+                          ? 'Hết hạn hôm nay'
+                          : `Còn ${p.days_until_expiry} ngày`
+                      }
+                    </span>
+                    {isEditor && (
+                      <button
+                        onClick={(e) => handleSendHostingNotif(e, p.id)}
+                        disabled={sendingNotif === p.id}
+                        className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-200 transition-colors disabled:opacity-50"
+                        title="Gửi email thông báo"
+                      >
+                        {sendingNotif === p.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Send size={14} />
+                        }
+                      </button>
+                    )}
                   </div>
-                  <span className={`text-xs font-semibold ${p.is_expired ? 'text-red-600' : 'text-amber-600'}`}>
-                    {p.is_expired
-                      ? `Đã hết hạn ${Math.abs(p.days_until_expiry)} ngày`
-                      : p.days_until_expiry === 0
-                        ? 'Hết hạn hôm nay'
-                        : `Còn ${p.days_until_expiry} ngày`
-                    }
-                  </span>
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -234,22 +271,25 @@ export default function ProjectList() {
           <Dropdown
             value={filters.client_id}
             options={clientOptions}
-            onChange={(e) => setFilters(prev => ({ ...prev, client_id: e.value, page: 1 }))}
+            onChange={(e) => setFilters(prev => ({ ...prev, client_id: e.value ?? null, page: 1 }))}
             placeholder="Khách hàng"
+            showClear={!!filters.client_id}
             className="w-full"
           />
           <Dropdown
             value={filters.status}
             options={statusOptions}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.value, page: 1 }))}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.value ?? null, page: 1 }))}
             placeholder="Trạng thái"
+            showClear={!!filters.status}
             className="w-full"
           />
           <Dropdown
             value={filters.payment_status}
             options={paymentOptions}
-            onChange={(e) => setFilters(prev => ({ ...prev, payment_status: e.value, page: 1 }))}
+            onChange={(e) => setFilters(prev => ({ ...prev, payment_status: e.value ?? null, page: 1 }))}
             placeholder="Thanh toán"
+            showClear={!!filters.payment_status}
             className="w-full"
           />
         </div>
@@ -280,6 +320,24 @@ export default function ProjectList() {
             const liveUrl = project.production_link || (project.domain_name ? `https://${project.domain_name}` : null);
             const projectTypeLabels = { new: 'Làm mới', upgrade: 'Nâng cấp', upload_source: 'Up source' };
 
+            const alerts = [];
+            if (project.using_own_hosting && project.own_hosting_expiry_date) {
+              const hostDays = Math.ceil((new Date(project.own_hosting_expiry_date) - new Date()) / 86400000);
+              if (hostDays <= 7) alerts.push({
+                type: 'hosting',
+                expired: hostDays < 0,
+                text: hostDays < 0 ? `Hosting hết hạn ${Math.abs(hostDays)} ngày` : hostDays === 0 ? 'Hosting hết hạn hôm nay' : `Hosting còn ${hostDays} ngày`,
+              });
+            }
+            if (project.payment_due_date && project.payment_status !== 'fully_paid') {
+              const payDays = Math.ceil((new Date(project.payment_due_date) - new Date()) / 86400000);
+              if (payDays <= 7) alerts.push({
+                type: 'payment',
+                expired: payDays < 0,
+                text: payDays < 0 ? `Quá hạn TT ${Math.abs(payDays)} ngày` : payDays === 0 ? 'Hạn TT hôm nay' : `Hạn TT còn ${payDays} ngày`,
+              });
+            }
+
             return (
               <div key={project.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 {/* Gradient Header */}
@@ -298,6 +356,20 @@ export default function ProjectList() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {alerts.map((alert, ai) => (
+                      <span
+                        key={ai}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold alert-badge-pulse shadow-lg ${
+                          alert.expired
+                            ? 'bg-red-500 text-white shadow-red-500/40'
+                            : 'bg-yellow-400 text-yellow-900 shadow-yellow-400/40'
+                        }`}
+                        title={alert.text}
+                      >
+                        {alert.type === 'hosting' ? <Server size={12} /> : <DollarSign size={12} />}
+                        {alert.text}
+                      </span>
+                    ))}
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColors[project.status] || 'bg-gray-100 text-gray-800'}`}>
                       {statusLabels[project.status] || project.status}
                     </span>
@@ -381,14 +453,18 @@ export default function ProjectList() {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors no-underline">
                         <Eye size={14} /> Xem chi tiết
                       </Link>
-                      <Link to={`/projects/${project.id}/edit`}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                        <Pencil size={15} />
-                      </Link>
-                      <button onClick={() => handleDelete(project.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 size={15} />
-                      </button>
+                      {isEditor && (
+                        <Link to={`/projects/${project.id}/edit`}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <Pencil size={15} />
+                        </Link>
+                      )}
+                      {isAdmin && (
+                        <button onClick={() => handleDelete(project.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

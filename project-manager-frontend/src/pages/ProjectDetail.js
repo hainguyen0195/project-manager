@@ -4,18 +4,23 @@ import { Toast } from 'primereact/toast';
 import { Image } from 'primereact/image';
 import {
   ArrowLeft, Pencil, Globe, Server, Key, Shield,
-  Calendar, DollarSign, ExternalLink, Copy, Eye, EyeOff, History
+  Calendar, DollarSign, ExternalLink, Copy, Eye, EyeOff, History,
+  Mail, Send, Bell, CheckCircle, XCircle, Loader2
 } from 'lucide-react';
-import { projectApi, STORAGE_URL } from '../services/api';
+import { projectApi, notificationApi, STORAGE_URL } from '../services/api';
 import { formatCurrency, formatDate, statusLabels, statusColors, paymentLabels, paymentColors } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useRef(null);
+  const { isEditor } = useAuth();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showFtp, setShowFtp] = useState(false);
+  const [sendingMail, setSendingMail] = useState(null);
+  const [notifLogs, setNotifLogs] = useState([]);
 
   useEffect(() => {
     loadProject();
@@ -26,10 +31,32 @@ export default function ProjectDetail() {
     try {
       const res = await projectApi.getById(id);
       setProject(res.data);
+      try {
+        const logsRes = await notificationApi.getProjectLogs(id);
+        setNotifLogs(logsRes.data);
+      } catch {}
     } catch (err) {
       toast.current?.show({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải dự án' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendNotification = async (type) => {
+    setSendingMail(type);
+    try {
+      const res = await notificationApi.send({ project_id: parseInt(id), type });
+      toast.current?.show({ severity: 'success', summary: 'Thành công', detail: res.data.message });
+      const logsRes = await notificationApi.getProjectLogs(id);
+      setNotifLogs(logsRes.data);
+    } catch (err) {
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: err.response?.data?.message || 'Không thể gửi email',
+      });
+    } finally {
+      setSendingMail(null);
     }
   };
 
@@ -92,13 +119,15 @@ export default function ProjectDetail() {
             </p>
           </div>
         </div>
-        <Link
-          to={`/projects/${project.id}/edit`}
-          className="inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors no-underline text-sm font-medium"
-        >
-          <Pencil size={16} />
-          Chỉnh sửa
-        </Link>
+        {isEditor && (
+          <Link
+            to={`/projects/${project.id}/edit`}
+            className="inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors no-underline text-sm font-medium"
+          >
+            <Pencil size={16} />
+            Chỉnh sửa
+          </Link>
+        )}
       </div>
 
       {/* Status Badges */}
@@ -281,6 +310,114 @@ export default function ProjectDetail() {
           <InfoRow label="Ngày hẹn thanh toán" value={formatDate(project.payment_due_date)} />
           <InfoRow label="Ngày hoàn tất thanh toán" value={formatDate(project.payment_completion_date)} />
         </div>
+
+        {/* Email Notifications */}
+        {isEditor && (
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Mail size={20} className="text-violet-600" />
+              Gửi thông báo Email
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Hosting expiry notification */}
+              <div className={`border rounded-xl p-4 ${
+                project.using_own_hosting && project.own_hosting_expiry_date
+                  ? 'border-orange-200 bg-orange-50/50'
+                  : 'border-gray-200 bg-gray-50 opacity-60'
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Server size={18} className="text-orange-600" />
+                  <span className="text-sm font-semibold text-gray-800">Hosting hết hạn</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  {project.using_own_hosting && project.own_hosting_expiry_date
+                    ? `Hết hạn: ${formatDate(project.own_hosting_expiry_date)}`
+                    : 'Không sử dụng hosting riêng'}
+                </p>
+                <button
+                  onClick={() => handleSendNotification('hosting_expiry')}
+                  disabled={!project.using_own_hosting || !project.own_hosting_expiry_date || sendingMail === 'hosting_expiry'}
+                  className="w-full flex items-center justify-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sendingMail === 'hosting_expiry' ? (
+                    <><Loader2 size={16} className="animate-spin" /> Đang gửi...</>
+                  ) : (
+                    <><Send size={16} /> Gửi thông báo hosting</>
+                  )}
+                </button>
+              </div>
+
+              {/* Payment due notification */}
+              <div className={`border rounded-xl p-4 ${
+                project.payment_status !== 'fully_paid' && project.remaining_amount > 0
+                  ? 'border-red-200 bg-red-50/50'
+                  : 'border-gray-200 bg-gray-50 opacity-60'
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign size={18} className="text-red-600" />
+                  <span className="text-sm font-semibold text-gray-800">Nhắc thanh toán</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  {project.payment_status !== 'fully_paid' && project.remaining_amount > 0
+                    ? `Còn nợ: ${formatCurrency(project.remaining_amount)}${project.payment_due_date ? ` — Hạn: ${formatDate(project.payment_due_date)}` : ''}`
+                    : 'Đã thanh toán đủ'}
+                </p>
+                <button
+                  onClick={() => handleSendNotification('payment_due')}
+                  disabled={project.payment_status === 'fully_paid' || sendingMail === 'payment_due'}
+                  className="w-full flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sendingMail === 'payment_due' ? (
+                    <><Loader2 size={16} className="animate-spin" /> Đang gửi...</>
+                  ) : (
+                    <><Send size={16} /> Gửi nhắc thanh toán</>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Logs */}
+            {notifLogs.length > 0 && (
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bell size={16} className="text-gray-500" />
+                  <span className="text-sm font-semibold text-gray-700">Lịch sử gửi email ({notifLogs.length})</span>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {notifLogs.slice(0, 10).map((log) => (
+                    <div key={log.id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-xs">
+                      <div className="flex items-center gap-2">
+                        {log.status === 'sent'
+                          ? <CheckCircle size={14} className="text-green-500" />
+                          : <XCircle size={14} className="text-red-500" />
+                        }
+                        <span className={`font-medium ${
+                          log.type === 'hosting_expiry' ? 'text-orange-700' : 'text-red-700'
+                        }`}>
+                          {log.type === 'hosting_expiry' ? 'Hosting hết hạn' : 'Nhắc thanh toán'}
+                        </span>
+                        <span className="text-gray-400">→</span>
+                        <span className="text-gray-600">{log.recipient_email}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          log.recipient_type === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {log.recipient_type}
+                        </span>
+                        {log.is_manual && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">thủ công</span>
+                        )}
+                      </div>
+                      <span className="text-gray-400 flex-shrink-0">
+                        {new Date(log.created_at).toLocaleString('vi-VN')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Images */}
         {project.images?.length > 0 && (

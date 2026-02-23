@@ -1,9 +1,10 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   FolderKanban, Check, Star, Zap, Shield, Globe,
-  Server, Palette, Code, Headphones, ArrowLeft
+  Server, Palette, Code, Headphones, ArrowLeft, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const websitePackages = [
   {
@@ -78,25 +79,35 @@ const services = [
 ];
 
 export default function PricingPage() {
+  const navigate = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 no-underline">
+            <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300">
               <ArrowLeft size={20} />
-            </Link>
+            </button>
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center">
                 <FolderKanban size={22} className="text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">PM Tool</h1>
-                <p className="text-xs text-gray-500">Bảng giá dịch vụ</p>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white">PM Tool</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Bảng giá dịch vụ</p>
               </div>
             </div>
           </div>
+          <button
+            onClick={toggleTheme}
+            className="p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+            title={isDark ? 'Light Mode' : 'Dark Mode'}
+          >
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
       </header>
 
@@ -119,7 +130,7 @@ export default function PricingPage() {
             {websitePackages.map((pkg, i) => {
               const Icon = pkg.icon;
               return (
-                <div key={i} className={`bg-white rounded-2xl border-2 ${pkg.popular ? 'border-purple-400 shadow-lg shadow-purple-100' : 'border-gray-200'} p-6 relative flex flex-col`}>
+                <div key={i} className={`bg-white dark:bg-gray-800 rounded-2xl border-2 ${pkg.popular ? 'border-purple-400 shadow-lg shadow-purple-100 dark:shadow-purple-900/30' : 'border-gray-200 dark:border-gray-700'} p-6 relative flex flex-col`}>
                   {pkg.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-xs font-bold px-4 py-1 rounded-full">
                       PHỔ BIẾN NHẤT
@@ -165,7 +176,7 @@ export default function PricingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {hostingPackages.map((pkg, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 hover:border-primary-300 hover:shadow-md transition-all">
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:border-primary-300 dark:hover:border-primary-600 hover:shadow-md transition-all">
                 <h4 className="text-lg font-bold text-gray-900 mb-1">{pkg.name}</h4>
                 <div className="mb-3">
                   <span className="text-2xl font-bold text-primary-600">{pkg.price}₫</span>
@@ -189,7 +200,7 @@ export default function PricingPage() {
             {services.map((service, i) => {
               const Icon = service.icon;
               return (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
                       <Icon size={20} className="text-primary-600" />
@@ -224,8 +235,8 @@ export default function PricingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-gray-500">
+      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12">
+        <div className="max-w-6xl mx-auto px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
           © {new Date().getFullYear()} PM Tool — Quản lý Dự án
         </div>
       </footer>

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const getBaseUrl = () => {
   if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
-  if (process.env.NODE_ENV === 'production') return '/api';
+  if (process.env.NODE_ENV === 'production') return '/index.php/api';
   return 'http://localhost:8000/api';
 };
 
@@ -14,6 +14,39 @@ const api = axios.create({
     'Accept': 'application/json',
   },
 });
+
+const savedToken = localStorage.getItem('auth_token');
+if (savedToken) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+}
+
+const publicPaths = ['/login', '/project-created', '/pricing', '/portfolio-showcase'];
+
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401 && !error.config.url?.includes('/login')) {
+      localStorage.removeItem('auth_token');
+      delete api.defaults.headers.common['Authorization'];
+      const isPublicPage = publicPaths.some(p => window.location.pathname.startsWith(p));
+      if (!isPublicPage) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth
+export const authApi = {
+  login: (data) => api.post('/login', data),
+  logout: () => api.post('/logout'),
+  getUser: () => api.get('/user'),
+  getUsers: () => api.get('/users'),
+  createUser: (data) => api.post('/users', data),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/users/${id}`),
+};
 
 // Clients
 export const clientApi = {
@@ -94,6 +127,13 @@ export const servicePackageApi = {
   create: (data) => api.post('/service-packages', data),
   update: (id, data) => api.put(`/service-packages/${id}`, data),
   delete: (id) => api.delete(`/service-packages/${id}`),
+};
+
+// Notifications
+export const notificationApi = {
+  send: (data) => api.post('/notifications/send', data),
+  getProjectLogs: (projectId) => api.get(`/notifications/project/${projectId}`),
+  getAllLogs: (params) => api.get('/notifications/logs', { params }),
 };
 
 // Portfolio

@@ -8,6 +8,7 @@ import { Toast } from 'primereact/toast';
 import { confirmDialog, ConfirmDialog } from 'primereact/confirmdialog';
 import { Plus, Eye, Pencil, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { clientApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function ClientList() {
   const [clients, setClients] = useState([]);
@@ -19,6 +20,7 @@ export default function ClientList() {
   const [editClient, setEditClient] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', address: '', notes: '' });
   const toast = useRef(null);
+  const { isAdmin, isEditor } = useAuth();
 
   useEffect(() => {
     loadClients();
@@ -91,7 +93,7 @@ export default function ClientList() {
   };
 
   const copyLink = (code) => {
-    const link = `${window.location.origin}/demo/${code}`;
+    const link = `${window.location.origin}/project-created/${code}`;
     navigator.clipboard.writeText(link);
     toast.current.show({ severity: 'info', summary: 'Đã copy', detail: link, life: 2000 });
   };
@@ -116,14 +118,18 @@ export default function ClientList() {
       <Link to={`/clients/${rowData.id}`} className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
         <Eye size={16} />
       </Link>
-      <button onClick={() => handleEdit(rowData)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-        <Pencil size={16} />
-      </button>
-      <button onClick={() => handleDelete(rowData.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-        <Trash2 size={16} />
-      </button>
+      {isEditor && (
+        <button onClick={() => handleEdit(rowData)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+          <Pencil size={16} />
+        </button>
+      )}
+      {isAdmin && (
+        <button onClick={() => handleDelete(rowData.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          <Trash2 size={16} />
+        </button>
+      )}
       <a
-        href={`/demo/${rowData.code}`}
+        href={`/project-created/${rowData.code}`}
         target="_blank"
         rel="noopener noreferrer"
         className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -144,13 +150,15 @@ export default function ClientList() {
           <h2 className="text-2xl font-bold text-gray-900">Khách hàng</h2>
           <p className="text-gray-500 mt-1">Quản lý thông tin khách hàng</p>
         </div>
-        <button
-          onClick={() => { setEditClient(null); setForm({ name: '', email: '', phone: '', company: '', address: '', notes: '' }); setShowDialog(true); }}
-          className="inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
-        >
-          <Plus size={18} />
-          Thêm khách hàng
-        </button>
+        {isEditor && (
+          <button
+            onClick={() => { setEditClient(null); setForm({ name: '', email: '', phone: '', company: '', address: '', notes: '' }); setShowDialog(true); }}
+            className="inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2.5 rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+          >
+            <Plus size={18} />
+            Thêm khách hàng
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4">

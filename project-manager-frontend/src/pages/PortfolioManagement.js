@@ -10,6 +10,7 @@ import {
   FolderKanban, Search, Check, ExternalLink, Eye, EyeOff, Layers
 } from 'lucide-react';
 import { portfolioApi, projectApi, STORAGE_URL } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function PortfolioManagement() {
   const [categories, setCategories] = useState([]);
@@ -32,6 +33,7 @@ export default function PortfolioManagement() {
 
   const [saving, setSaving] = useState(false);
   const toast = useRef(null);
+  const { isAdmin, isEditor } = useAuth();
 
   useEffect(() => {
     loadData();
@@ -239,13 +241,15 @@ export default function PortfolioManagement() {
                 <Layers size={18} />
                 Hạng mục
               </h3>
-              <button
-                onClick={openNewCategory}
-                className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
-                title="Thêm hạng mục"
-              >
-                <Plus size={18} />
-              </button>
+              {isEditor && (
+                <button
+                  onClick={openNewCategory}
+                  className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
+                  title="Thêm hạng mục"
+                >
+                  <Plus size={18} />
+                </button>
+              )}
             </div>
 
             <div className="p-2">
@@ -267,20 +271,24 @@ export default function PortfolioManagement() {
                       <p className="text-sm font-medium truncate">{cat.name}</p>
                       <p className="text-xs text-gray-400">{cat.portfolios_count || 0} dự án</p>
                     </div>
-                    <div className="hidden group-hover:flex items-center gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEditCategory(cat); }}
-                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat); }}
-                        className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    {isEditor && (
+                      <div className="hidden group-hover:flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditCategory(cat); }}
+                          className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat); }}
+                            className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-600"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -302,13 +310,15 @@ export default function PortfolioManagement() {
                   {categories.find(c => c.id === activeCategory)?.name}
                   <span className="text-sm text-gray-400 font-normal ml-2">({portfolios.length} dự án)</span>
                 </h2>
-                <button
-                  onClick={openAddProjects}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm"
-                >
-                  <Plus size={16} />
-                  Thêm dự án
-                </button>
+                {isEditor && (
+                  <button
+                    onClick={openAddProjects}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm"
+                  >
+                    <Plus size={16} />
+                    Thêm dự án
+                  </button>
+                )}
               </div>
 
               {portfolios.length === 0 ? (
@@ -381,24 +391,28 @@ export default function PortfolioManagement() {
                           )}
 
                           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                            <button
-                              onClick={() => handleToggleActive(portfolio)}
-                              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                                portfolio.is_active
-                                  ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                              }`}
-                            >
-                              {portfolio.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
-                              {portfolio.is_active ? 'Hiển thị' : 'Ẩn'}
-                            </button>
+                            {isEditor && (
+                              <button
+                                onClick={() => handleToggleActive(portfolio)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                                  portfolio.is_active
+                                    ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                              >
+                                {portfolio.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                                {portfolio.is_active ? 'Hiển thị' : 'Ẩn'}
+                              </button>
+                            )}
                             <div className="flex-1" />
-                            <button
-                              onClick={() => handleRemovePortfolio(portfolio)}
-                              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleRemovePortfolio(portfolio)}
+                                className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

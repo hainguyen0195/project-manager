@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { servicePackageApi } from '../services/api';
 import { formatCurrency } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
 
 const categoryOptions = [
   { label: 'Gói Website', value: 'website', icon: Globe, color: 'from-blue-500 to-cyan-500' },
@@ -52,6 +53,7 @@ export default function ServicePackageManagement() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [featureInput, setFeatureInput] = useState('');
   const toast = useRef(null);
+  const { isAdmin, isEditor } = useAuth();
 
   useEffect(() => { loadPackages(); }, []);
 
@@ -169,13 +171,15 @@ export default function ServicePackageManagement() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">Thêm, sửa, xóa các gói dịch vụ và bảng giá</p>
         </div>
-        <button
-          onClick={() => openNew()}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm"
-        >
-          <Plus size={18} />
-          Thêm gói mới
-        </button>
+        {isEditor && (
+          <button
+            onClick={() => openNew()}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm"
+          >
+            <Plus size={18} />
+            Thêm gói mới
+          </button>
+        )}
       </div>
 
       {/* Category Tabs */}
@@ -268,20 +272,26 @@ export default function ServicePackageManagement() {
                     </ul>
                   )}
 
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => openEdit(pkg)}
-                      className="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      <Pencil size={14} /> Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(pkg)}
-                      className="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {(isEditor || isAdmin) && (
+                    <div className="flex gap-2 pt-3 border-t border-gray-100">
+                      {isEditor && (
+                        <button
+                          onClick={() => openEdit(pkg)}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          <Pencil size={14} /> Sửa
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(pkg)}
+                          className="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

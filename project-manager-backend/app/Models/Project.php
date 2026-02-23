@@ -56,4 +56,9 @@ class Project extends Model
     {
         return $this->hasMany(HostingHistory::class)->orderBy('created_at', 'desc');
     }
+
+    public function notificationLogs()
+    {
+        return $this->hasMany(NotificationLog::class)->orderBy('created_at', 'desc');
+    }
 }

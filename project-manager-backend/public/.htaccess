@@ -1,39 +1,16 @@
+DirectoryIndex index.php
+
+# Handle Authorization Header
 <IfModule mod_rewrite.c>
-    <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
-    </IfModule>
-
     RewriteEngine On
+    RewriteBase /
 
-    # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-    # Handle X-XSRF-Token Header
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
-
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
-
-    # Serve React static files directly (JS, CSS, images, etc.)
-    RewriteCond %{REQUEST_URI} ^/app/static/
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^ - [L]
-
-    # API routes - send to Laravel
-    RewriteRule ^api/ index.php [L]
-
-    # Storage routes - send to Laravel
-    RewriteRule ^storage/ - [L]
-
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
 </IfModule>
+
+# Fallback: any URL not matching a real file goes to index.php
+ErrorDocument 404 /index.php
 
 # Enable Gzip compression
 <IfModule mod_deflate.c>

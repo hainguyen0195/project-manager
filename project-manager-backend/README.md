@@ -91,10 +91,14 @@ Cấu trúc thư mục trên DirectAdmin:
 
 1. Upload thư mục `project-manager-backend` vào `/home/username/` (ngang hàng với `domains/`)
 
-2. Copy **nội dung** thư mục `project-manager-backend/public/` vào `public_html/`:
+2. Copy các file/thư mục sau từ `project-manager-backend/public/` vào `public_html/`:
    - `index.php`
    - `.htaccess`
-   - Thư mục `app/`
+   - `setup.php`
+   - `favicon.ico`
+   - `robots.txt`
+   - Thư mục `app/` (React build)
+   - **KHÔNG copy** thư mục `storage/` (là symlink, sẽ tạo lại ở bước 4)
 
 3. Sửa file `public_html/index.php` — đổi path cho đúng:
 

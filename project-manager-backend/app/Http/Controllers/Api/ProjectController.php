@@ -37,7 +37,11 @@ class ProjectController extends Controller
         }
 
         if ($request->has('payment_status') && $request->payment_status) {
-            $query->where('payment_status', $request->payment_status);
+            if ($request->payment_status === 'not_fully_paid') {
+                $query->where('payment_status', '!=', 'fully_paid');
+            } else {
+                $query->where('payment_status', $request->payment_status);
+            }
         }
 
         $sortField = $request->get('sort_field', 'created_at');
@@ -49,6 +53,10 @@ class ProjectController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('features') && is_string($request->features)) {
+            $request->merge(['features' => json_decode($request->features, true)]);
+        }
+
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'name' => 'required|string|max:255',

@@ -31,7 +31,7 @@ export default function ClientProjects() {
   };
 
   const copyLink = () => {
-    const link = `${window.location.origin}/demo/${client.code}`;
+    const link = `${window.location.origin}/project-created/${client.code}`;
     navigator.clipboard.writeText(link);
   };
 
