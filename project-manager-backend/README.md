@@ -170,3 +170,35 @@ Khi cần update code mới:
 4. Truy cập `setup.php?action=cache` để tạo cache mới
 5. Nếu có migration mới: `setup.php?action=migrate`
 6. **Xóa `setup.php`** sau khi xong
+
+---
+
+## Cấu hình gửi Zalo thông báo
+
+Hệ thống hỗ trợ gửi thông báo **Email + Zalo** cho khách hàng khi:
+- Hosting sắp/đã hết hạn
+- Thanh toán đến hạn/quá hạn
+
+### 1) Cấu hình `.env`
+
+```env
+ZALO_ENABLED=true
+ZALO_WEBHOOK_URL=https://your-webhook-endpoint
+ZALO_TIMEOUT=10
+```
+
+### 2) Webhook nhận payload JSON
+
+```json
+{
+  "channel": "zalo",
+  "type": "hosting_expiry | payment_due",
+  "phone": "84xxxxxxxxx",
+  "client": { "id": 1, "name": "..." },
+  "project": { "id": 10, "name": "...", "domain_name": "..." },
+  "message": "Nội dung thông báo",
+  "sent_at": "2026-02-24T01:00:00+07:00"
+}
+```
+
+> Bạn có thể dùng n8n/Make/Zalo OA API riêng để chuyển tiếp payload thành tin nhắn Zalo thực tế.

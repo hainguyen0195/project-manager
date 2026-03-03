@@ -30,6 +30,11 @@ class Client extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class)->orderBy('created_at', 'desc');
+    }
+
     public function getTotalProjectsAttribute()
     {
         return $this->projects()->count();

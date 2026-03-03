@@ -28,3 +28,4 @@ Route::get('/users', $serveFrontend);
 Route::get('/pricing', $serveFrontend);
 Route::get('/portfolio-showcase', $serveFrontend);
 Route::get('/project-created/{any}', $serveFrontend)->where('any', '.*');
+Route::get('/ticket/{any}', $serveFrontend)->where('any', '.*');

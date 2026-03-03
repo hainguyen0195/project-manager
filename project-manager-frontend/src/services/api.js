@@ -136,6 +136,29 @@ export const notificationApi = {
   getAllLogs: (params) => api.get('/notifications/logs', { params }),
 };
 
+// Tickets
+export const ticketApi = {
+  createPublic: (data) => {
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+      if (key === 'attachments' && Array.isArray(data[key])) {
+        data[key].forEach(file => formData.append('attachments[]', file));
+      } else if (data[key] !== null && data[key] !== undefined) {
+        formData.append(key, data[key]);
+      }
+    });
+    return api.post('/public/tickets', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getPublicByCode: (code) => api.get(`/public/tickets/${code}`),
+  getPublicByProject: (projectId, clientCode) =>
+    api.get(`/public/projects/${projectId}/tickets`, { params: { client_code: clientCode } }),
+  getByProject: (projectId) => api.get(`/tickets/project/${projectId}`),
+  complete: (ticketId, data) => api.patch(`/tickets/${ticketId}/complete`, data),
+  delete: (ticketId) => api.delete(`/tickets/${ticketId}`),
+};
+
 // Portfolio
 export const portfolioApi = {
   getCategories: () => api.get('/portfolio/categories'),

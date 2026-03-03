@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Toast } from 'primereact/toast';
 import { Image } from 'primereact/image';
+import { Dialog } from 'primereact/dialog';
+import { Editor } from 'primereact/editor';
 import {
   ArrowLeft, Pencil, Globe, Server, Key, Shield,
   Calendar, DollarSign, ExternalLink, Copy, Eye, EyeOff, History,
-  Mail, Send, Bell, CheckCircle, XCircle, Loader2
+  Mail, Send, Bell, CheckCircle, XCircle, Loader2, MessageCircle, Ticket, Trash2, Plus
 } from 'lucide-react';
-import { projectApi, notificationApi, STORAGE_URL } from '../services/api';
+import { projectApi, notificationApi, ticketApi, STORAGE_URL } from '../services/api';
 import { formatCurrency, formatDate, statusLabels, statusColors, paymentLabels, paymentColors } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
 
@@ -21,6 +23,15 @@ export default function ProjectDetail() {
   const [showFtp, setShowFtp] = useState(false);
   const [sendingMail, setSendingMail] = useState(null);
   const [notifLogs, setNotifLogs] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [ticketActionLoading, setTicketActionLoading] = useState(null);
+  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [newTicketForm, setNewTicketForm] = useState({
+    title: '',
+    content: '',
+    attachments: [],
+  });
 
   useEffect(() => {
     loadProject();
@@ -34,6 +45,10 @@ export default function ProjectDetail() {
       try {
         const logsRes = await notificationApi.getProjectLogs(id);
         setNotifLogs(logsRes.data);
+      } catch {}
+      try {
+        const ticketsRes = await ticketApi.getByProject(id);
+        setTickets(ticketsRes.data);
       } catch {}
     } catch (err) {
       toast.current?.show({ severity: 'error', summary: 'Lỗi', detail: 'Không thể tải dự án' });
@@ -53,7 +68,7 @@ export default function ProjectDetail() {
       toast.current?.show({
         severity: 'error',
         summary: 'Lỗi',
-        detail: err.response?.data?.message || 'Không thể gửi email',
+        detail: err.response?.data?.message || 'Không thể gửi thông báo',
       });
     } finally {
       setSendingMail(null);
@@ -63,6 +78,66 @@ export default function ProjectDetail() {
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     toast.current?.show({ severity: 'info', summary: 'Đã copy', detail: text, life: 2000 });
+  };
+
+  const handleCompleteTicket = async (ticketId, channels = []) => {
+    setTicketActionLoading(`complete-${ticketId}-${channels.join('-') || 'none'}`);
+    try {
+      await ticketApi.complete(ticketId, { notify_channels: channels });
+      toast.current?.show({ severity: 'success', summary: 'Thành công', detail: 'Đã hoàn thành ticket' });
+      const ticketsRes = await ticketApi.getByProject(id);
+      setTickets(ticketsRes.data);
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Lỗi', detail: err.response?.data?.message || 'Không thể hoàn thành ticket' });
+    } finally {
+      setTicketActionLoading(null);
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId) => {
+    if (!window.confirm('Xóa ticket đã hoàn thành này?')) return;
+    setTicketActionLoading(`delete-${ticketId}`);
+    try {
+      await ticketApi.delete(ticketId);
+      toast.current?.show({ severity: 'success', summary: 'Đã xóa', detail: 'Ticket đã được xóa' });
+      const ticketsRes = await ticketApi.getByProject(id);
+      setTickets(ticketsRes.data);
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Lỗi', detail: err.response?.data?.message || 'Không thể xóa ticket' });
+    } finally {
+      setTicketActionLoading(null);
+    }
+  };
+
+  const handleCreateTicketFromProject = async () => {
+    if (!project?.client?.code) {
+      toast.current?.show({ severity: 'warn', summary: 'Thiếu dữ liệu', detail: 'Khách hàng chưa có mã code public để tạo ticket.' });
+      return;
+    }
+    if (!newTicketForm.title || !newTicketForm.content) {
+      toast.current?.show({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập tiêu đề và nội dung ticket.' });
+      return;
+    }
+
+    setCreatingTicket(true);
+    try {
+      await ticketApi.createPublic({
+        client_code: project.client.code,
+        project_id: project.id,
+        title: newTicketForm.title,
+        content: newTicketForm.content,
+        attachments: newTicketForm.attachments,
+      });
+      toast.current?.show({ severity: 'success', summary: 'Thành công', detail: 'Đã tạo ticket và gửi thông báo cho admin.' });
+      setShowCreateTicketModal(false);
+      setNewTicketForm({ title: '', content: '', attachments: [] });
+      const ticketsRes = await ticketApi.getByProject(id);
+      setTickets(ticketsRes.data);
+    } catch (err) {
+      toast.current?.show({ severity: 'error', summary: 'Lỗi', detail: err.response?.data?.message || 'Không thể tạo ticket' });
+    } finally {
+      setCreatingTicket(false);
+    }
   };
 
   if (loading) {
@@ -311,12 +386,12 @@ export default function ProjectDetail() {
           <InfoRow label="Ngày hoàn tất thanh toán" value={formatDate(project.payment_completion_date)} />
         </div>
 
-        {/* Email Notifications */}
+        {/* Notifications */}
         {isEditor && (
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Mail size={20} className="text-violet-600" />
-              Gửi thông báo Email
+              Gửi thông báo (Email + Zalo)
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -382,7 +457,7 @@ export default function ProjectDetail() {
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Bell size={16} className="text-gray-500" />
-                  <span className="text-sm font-semibold text-gray-700">Lịch sử gửi email ({notifLogs.length})</span>
+                  <span className="text-sm font-semibold text-gray-700">Lịch sử gửi thông báo ({notifLogs.length})</span>
                 </div>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {notifLogs.slice(0, 10).map((log) => (
@@ -397,8 +472,14 @@ export default function ProjectDetail() {
                         }`}>
                           {log.type === 'hosting_expiry' ? 'Hosting hết hạn' : 'Nhắc thanh toán'}
                         </span>
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          log.channel === 'zalo' ? 'bg-green-100 text-green-700' : 'bg-indigo-100 text-indigo-700'
+                        }`}>
+                          {log.channel === 'zalo' ? <MessageCircle size={10} /> : <Mail size={10} />}
+                          {log.channel || 'email'}
+                        </span>
                         <span className="text-gray-400">→</span>
-                        <span className="text-gray-600">{log.recipient_email}</span>
+                        <span className="text-gray-600">{log.channel === 'zalo' ? (log.recipient_phone || 'không có SĐT') : log.recipient_email}</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                           log.recipient_type === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
                         }`}>
@@ -414,6 +495,101 @@ export default function ProjectDetail() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tickets */}
+        {isEditor && (
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <Ticket size={20} className="text-indigo-600" />
+                Ticket hỗ trợ ({tickets.length})
+              </h3>
+              <button
+                onClick={() => setShowCreateTicketModal(true)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs border-none cursor-pointer"
+              >
+                <Plus size={14} />
+                Thêm ticket
+              </button>
+            </div>
+
+            {tickets.length === 0 ? (
+              <p className="text-sm text-gray-500">Chưa có ticket nào cho dự án này.</p>
+            ) : (
+              <div className="space-y-3">
+                {tickets.map((ticket) => (
+                  <div key={ticket.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900">{ticket.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {ticket.client?.name} • {new Date(ticket.created_at).toLocaleString('vi-VN')}
+                        </p>
+                        <a
+                          href={`/ticket/${ticket.public_code}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 no-underline mt-1 inline-block"
+                        >
+                          Mở link public: /ticket/{ticket.public_code}
+                        </a>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ticket.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {ticket.status === 'completed' ? 'Đã hoàn thành' : 'Đang mở'}
+                      </span>
+                    </div>
+
+                    <div className="prose prose-sm max-w-none mt-3" dangerouslySetInnerHTML={{ __html: ticket.content }} />
+
+                    {ticket.status !== 'completed' ? (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <button
+                          onClick={() => handleCompleteTicket(ticket.id, [])}
+                          disabled={!!ticketActionLoading}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs border-none cursor-pointer disabled:opacity-60"
+                        >
+                          Hoàn thành
+                        </button>
+                        <button
+                          onClick={() => handleCompleteTicket(ticket.id, ['email'])}
+                          disabled={!!ticketActionLoading}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs border-none cursor-pointer disabled:opacity-60"
+                        >
+                          Hoàn thành + Email
+                        </button>
+                        <button
+                          onClick={() => handleCompleteTicket(ticket.id, ['zalo'])}
+                          disabled={!!ticketActionLoading}
+                          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs border-none cursor-pointer disabled:opacity-60"
+                        >
+                          Hoàn thành + Zalo
+                        </button>
+                        <button
+                          onClick={() => handleCompleteTicket(ticket.id, ['email', 'zalo'])}
+                          disabled={!!ticketActionLoading}
+                          className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs border-none cursor-pointer disabled:opacity-60"
+                        >
+                          Hoàn thành + Email + Zalo
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => handleDeleteTicket(ticket.id)}
+                          disabled={ticketActionLoading === `delete-${ticket.id}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-xs border border-red-200 cursor-pointer disabled:opacity-60"
+                        >
+                          <Trash2 size={14} />
+                          Xóa ticket đã hoàn thành
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -438,6 +614,61 @@ export default function ProjectDetail() {
           </div>
         )}
       </div>
+
+      <Dialog
+        header={`Thêm ticket - ${project?.name || ''}`}
+        visible={showCreateTicketModal}
+        style={{ width: 'min(760px, 96vw)' }}
+        onHide={() => setShowCreateTicketModal(false)}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Tiêu đề ticket</label>
+            <input
+              value={newTicketForm.title}
+              onChange={(e) => setNewTicketForm(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              placeholder="Nhập tiêu đề"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Nội dung</label>
+            <div className="mt-1">
+              <Editor
+                value={newTicketForm.content}
+                onTextChange={(e) => setNewTicketForm(prev => ({ ...prev, content: e.htmlValue || '' }))}
+                style={{ height: '220px' }}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Ảnh đính kèm</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              onChange={(e) => setNewTicketForm(prev => ({ ...prev, attachments: Array.from(e.target.files || []).slice(0, 5) }))}
+            />
+          </div>
+          <div className="pt-2 flex justify-end gap-2">
+            <button
+              onClick={() => setShowCreateTicketModal(false)}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleCreateTicketFromProject}
+              disabled={creatingTicket}
+              className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm border-none cursor-pointer disabled:opacity-60 inline-flex items-center gap-2"
+            >
+              {creatingTicket ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              {creatingTicket ? 'Đang tạo...' : 'Tạo ticket'}
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

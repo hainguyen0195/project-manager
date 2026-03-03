@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ExternalLink, X, ChevronLeft, ChevronRight, ArrowLeft, Layers } from 'lucide-react';
+import { ExternalLink, X, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { portfolioApi, STORAGE_URL } from '../services/api';
 
 export default function PortfolioPublic() {
-  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -79,13 +77,6 @@ export default function PortfolioPublic() {
             <span className="text-3xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">Cris</span>
             <span className="text-lg font-semibold text-gray-300">HaiNguyen Dev</span>
           </span>
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
-          >
-            <ArrowLeft size={16} />
-            Quay lại
-          </button>
         </div>
       </header>
 

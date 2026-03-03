@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\ServicePackageController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PortfolioController;
+use App\Http\Controllers\Api\TicketController;
 
 // Auth routes (public)
 Route::post('/login', [AuthController::class, 'login']);
@@ -18,6 +19,9 @@ Route::get('/public/client/{code}', [ClientController::class, 'findByCode']);
 Route::get('/public/portfolio', [PortfolioController::class, 'publicIndex']);
 Route::get('/public/settings', [SettingController::class, 'index']);
 Route::get('/public/packages', [ServicePackageController::class, 'index']);
+Route::post('/public/tickets', [TicketController::class, 'storePublic']);
+Route::get('/public/tickets/{code}', [TicketController::class, 'showPublic']);
+Route::get('/public/projects/{project}/tickets', [TicketController::class, 'listPublicByProject']);
 
 // Protected routes (require login)
 Route::middleware('auth:sanctum')->group(function () {
@@ -100,5 +104,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/batch-remove', [PortfolioController::class, 'batchRemove']);
         Route::put('/{portfolio}', [PortfolioController::class, 'update']);
         Route::delete('/{portfolio}', [PortfolioController::class, 'destroy']);
+    });
+
+    // Tickets
+    Route::prefix('tickets')->group(function () {
+        Route::get('/project/{project}', [TicketController::class, 'listByProject']);
+        Route::patch('/{ticket}/complete', [TicketController::class, 'complete']);
+        Route::delete('/{ticket}', [TicketController::class, 'destroy']);
     });
 });

@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'zalo' => [
+        'enabled' => env('ZALO_ENABLED', false),
+        'webhook_url' => env('ZALO_WEBHOOK_URL'),
+        'timeout' => (int) env('ZALO_TIMEOUT', 10),
+    ],
+
 ];

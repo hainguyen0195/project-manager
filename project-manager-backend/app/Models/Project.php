@@ -61,4 +61,9 @@ class Project extends Model
     {
         return $this->hasMany(NotificationLog::class)->orderBy('created_at', 'desc');
     }
+
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class)->orderBy('created_at', 'desc');
+    }
 }

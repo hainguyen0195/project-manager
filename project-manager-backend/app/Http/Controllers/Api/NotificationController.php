@@ -7,6 +7,7 @@ use App\Mail\HostingExpiryNotification;
 use App\Mail\PaymentDueNotification;
 use App\Models\NotificationLog;
 use App\Models\Project;
+use App\Services\ZaloNotificationService;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Mail;
 class NotificationController extends Controller
 {
     /**
-     * Gửi mail thủ công cho 1 dự án.
+     * Gửi thông báo thủ công cho 1 dự án (Email + Zalo).
      * POST /api/notifications/send
      * Body: { project_id, type: "hosting_expiry"|"payment_due" }
      */
@@ -31,13 +32,19 @@ class NotificationController extends Controller
 
         $adminEmail = $this->getAdminEmail();
 
-        // Send to client
-        if ($project->client?->email) {
+        // Send to client email
+        if ($project->client && $project->client->email) {
             $result = $this->sendMail($project, $type, $project->client->email, 'client', true);
             $results[] = $result;
         }
 
-        // Send to admin
+        // Send to client zalo
+        if ($project->client && self::isZaloConfigured()) {
+            $result = $this->sendZalo($project, $type, true);
+            $results[] = $result;
+        }
+
+        // Send to admin email
         if ($adminEmail) {
             $result = $this->sendMail($project, $type, $adminEmail, 'admin', true);
             $results[] = $result;
@@ -48,13 +55,16 @@ class NotificationController extends Controller
 
         if ($sent === 0 && $failed === 0) {
             return response()->json([
-                'message' => 'Không có email nào để gửi. Kiểm tra email khách hàng và admin.',
+                'message' => 'Không có thông báo nào để gửi. Kiểm tra email/số điện thoại khách hàng và cấu hình Zalo.',
                 'results' => [],
             ], 422);
         }
 
+        $emailSent = collect($results)->where('status', 'sent')->where('channel', 'email')->count();
+        $zaloSent = collect($results)->where('status', 'sent')->where('channel', 'zalo')->count();
+
         return response()->json([
-            'message' => "Đã gửi {$sent} email" . ($failed > 0 ? ", {$failed} thất bại" : ''),
+            'message' => "Đã gửi {$sent} thông báo (Email: {$emailSent}, Zalo: {$zaloSent})" . ($failed > 0 ? ", {$failed} thất bại" : ''),
             'results' => $results,
         ]);
     }
@@ -102,31 +112,84 @@ class NotificationController extends Controller
             NotificationLog::create([
                 'project_id' => $project->id,
                 'type' => $type,
+                'channel' => 'email',
                 'recipient_email' => $email,
+                'recipient_phone' => null,
                 'recipient_type' => $recipientType,
                 'status' => 'sent',
                 'is_manual' => $isManual,
             ]);
 
-            return ['email' => $email, 'type' => $recipientType, 'status' => 'sent'];
+            return ['channel' => 'email', 'email' => $email, 'type' => $recipientType, 'status' => 'sent'];
         } catch (\Throwable $e) {
             NotificationLog::create([
                 'project_id' => $project->id,
                 'type' => $type,
+                'channel' => 'email',
                 'recipient_email' => $email,
+                'recipient_phone' => null,
                 'recipient_type' => $recipientType,
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
                 'is_manual' => $isManual,
             ]);
 
-            return ['email' => $email, 'type' => $recipientType, 'status' => 'failed', 'error' => $e->getMessage()];
+            return ['channel' => 'email', 'email' => $email, 'type' => $recipientType, 'status' => 'failed', 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Gửi Zalo cho khách hàng.
+     */
+    public static function sendZalo(Project $project, string $type, bool $isManual = false): array
+    {
+        try {
+            $result = ZaloNotificationService::send($project, $type);
+            $phone = $result['phone'] ?? null;
+
+            NotificationLog::create([
+                'project_id' => $project->id,
+                'type' => $type,
+                'channel' => 'zalo',
+                'recipient_email' => '',
+                'recipient_phone' => $phone,
+                'recipient_type' => 'client',
+                'status' => 'sent',
+                'is_manual' => $isManual,
+            ]);
+
+            return ['channel' => 'zalo', 'phone' => $phone, 'type' => 'client', 'status' => 'sent'];
+        } catch (\Throwable $e) {
+            NotificationLog::create([
+                'project_id' => $project->id,
+                'type' => $type,
+                'channel' => 'zalo',
+                'recipient_email' => '',
+                'recipient_phone' => $project->client ? $project->client->phone : null,
+                'recipient_type' => 'client',
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+                'is_manual' => $isManual,
+            ]);
+
+            return [
+                'channel' => 'zalo',
+                'phone' => $project->client ? $project->client->phone : null,
+                'type' => 'client',
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
     private function getAdminEmail(): ?string
     {
         $admin = User::where('role', 'admin')->first();
-        return $admin?->email;
+        return $admin ? $admin->email : null;
+    }
+
+    public static function isZaloConfigured(): bool
+    {
+        return (bool) config('services.zalo.enabled') && !empty(config('services.zalo.webhook_url'));
     }
 }

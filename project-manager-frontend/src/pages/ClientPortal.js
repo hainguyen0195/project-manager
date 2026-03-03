@@ -1,15 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FolderKanban, ExternalLink, Globe, Calendar } from 'lucide-react';
-import { clientApi, STORAGE_URL } from '../services/api';
+import { FolderKanban, ExternalLink, Globe, Calendar, LifeBuoy, Send, Loader2, ListChecks } from 'lucide-react';
+import { Dialog } from 'primereact/dialog';
+import { Editor } from 'primereact/editor';
+import { Toast } from 'primereact/toast';
+import { clientApi, ticketApi, STORAGE_URL } from '../services/api';
 import { formatCurrency, formatDate, statusLabels, statusColors } from '../utils/format';
 
 export default function ClientPortal() {
   const { clientCode } = useParams();
+  const toast = React.useRef(null);
   const [client, setClient] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [showTicketListModal, setShowTicketListModal] = useState(false);
+  const [activeTicketProject, setActiveTicketProject] = useState(null);
+  const [projectTickets, setProjectTickets] = useState([]);
+  const [loadingProjectTickets, setLoadingProjectTickets] = useState(false);
+  const [ticketForm, setTicketForm] = useState({
+    project_id: '',
+    title: '',
+    content: '',
+    attachments: [],
+  });
+  const [sendingTicket, setSendingTicket] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -25,6 +41,68 @@ export default function ClientPortal() {
       setError('Không tìm thấy thông tin khách hàng');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openTicketModal = (project) => {
+    setActiveTicketProject(project);
+    setTicketForm({ project_id: project?.id || '', title: '', content: '', attachments: [] });
+    setShowTicketModal(true);
+  };
+
+  const openTicketListModal = async (project) => {
+    setActiveTicketProject(project);
+    setShowTicketListModal(true);
+    setLoadingProjectTickets(true);
+    try {
+      const res = await ticketApi.getPublicByProject(project.id, clientCode);
+      setProjectTickets(res.data || []);
+    } catch {
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: 'Không thể tải danh sách ticket của dự án.',
+      });
+      setProjectTickets([]);
+    } finally {
+      setLoadingProjectTickets(false);
+    }
+  };
+
+  const handleCreateTicket = async () => {
+    if (!ticketForm.project_id || !ticketForm.title || !ticketForm.content) {
+      toast.current?.show({ severity: 'warn', summary: 'Thiếu thông tin', detail: 'Vui lòng nhập dự án, tiêu đề và nội dung ticket.' });
+      return;
+    }
+
+    setSendingTicket(true);
+    try {
+      const res = await ticketApi.createPublic({
+        client_code: clientCode,
+        project_id: ticketForm.project_id,
+        title: ticketForm.title,
+        content: ticketForm.content,
+        attachments: ticketForm.attachments,
+      });
+
+      setShowTicketModal(false);
+      toast.current?.show({
+        severity: 'success',
+        summary: 'Đã gửi ticket',
+        detail: 'Yêu cầu của bạn đã được gửi cho admin.',
+      });
+
+      if (res.data?.ticket?.public_code) {
+        window.open(`/ticket/${res.data.ticket.public_code}`, '_blank');
+      }
+    } catch (err) {
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Lỗi',
+        detail: err.response?.data?.message || 'Không thể gửi ticket.',
+      });
+    } finally {
+      setSendingTicket(false);
     }
   };
 
@@ -50,6 +128,7 @@ export default function ClientPortal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <Toast ref={toast} />
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -147,6 +226,18 @@ export default function ClientPortal() {
                           <ExternalLink size={14} /> Design
                         </a>
                       )}
+                      <button
+                        onClick={() => openTicketModal(project)}
+                        className="inline-flex items-center gap-1 text-sm text-violet-700 bg-violet-50 hover:bg-violet-100 px-3 py-1 rounded-lg border border-violet-200"
+                      >
+                        <LifeBuoy size={14} /> Thêm ticket
+                      </button>
+                      <button
+                        onClick={() => openTicketListModal(project)}
+                        className="inline-flex items-center gap-1 text-sm text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-200"
+                      >
+                        <ListChecks size={14} /> Xem ticket
+                      </button>
                     </div>
                   </div>
 
@@ -194,6 +285,106 @@ export default function ClientPortal() {
           © {new Date().getFullYear()} PM Tool — Quản lý Dự án
         </div>
       </footer>
+
+      <Dialog
+        header={`Tạo ticket hỗ trợ${activeTicketProject ? ` - ${activeTicketProject.name}` : ''}`}
+        visible={showTicketModal}
+        style={{ width: 'min(760px, 96vw)' }}
+        onHide={() => setShowTicketModal(false)}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Tiêu đề ticket</label>
+            <input
+              value={ticketForm.title}
+              onChange={(e) => setTicketForm(prev => ({ ...prev, title: e.target.value }))}
+              className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              placeholder="Ví dụ: Lỗi hiển thị ở trang chủ"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Nội dung chi tiết</label>
+            <div className="mt-1">
+              <Editor
+                value={ticketForm.content}
+                onTextChange={(e) => setTicketForm(prev => ({ ...prev, content: e.htmlValue || '' }))}
+                style={{ height: '220px' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700">Ảnh đính kèm (tối đa 5 ảnh)</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              onChange={(e) => setTicketForm(prev => ({ ...prev, attachments: Array.from(e.target.files || []).slice(0, 5) }))}
+            />
+            {ticketForm.attachments.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">Đã chọn {ticketForm.attachments.length} ảnh.</p>
+            )}
+          </div>
+
+          <div className="pt-2 flex justify-end gap-2">
+            <button
+              onClick={() => setShowTicketModal(false)}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleCreateTicket}
+              disabled={sendingTicket}
+              className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm border-none cursor-pointer disabled:opacity-60 inline-flex items-center gap-2"
+            >
+              {sendingTicket ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              {sendingTicket ? 'Đang gửi...' : 'Gửi ticket'}
+            </button>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        header={`Danh sách ticket${activeTicketProject ? ` - ${activeTicketProject.name}` : ''}`}
+        visible={showTicketListModal}
+        style={{ width: 'min(720px, 96vw)' }}
+        onHide={() => setShowTicketListModal(false)}
+      >
+        {loadingProjectTickets ? (
+          <div className="py-10 flex justify-center">
+            <Loader2 size={22} className="animate-spin text-gray-500" />
+          </div>
+        ) : projectTickets.length === 0 ? (
+          <p className="text-sm text-gray-500">Dự án này chưa có ticket nào.</p>
+        ) : (
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+            {projectTickets.map((t) => (
+              <a
+                key={t.id}
+                href={`/ticket/${t.public_code}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block no-underline border border-gray-200 rounded-lg p-3 hover:bg-gray-50"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t.title}</p>
+                    <p className="text-xs text-gray-500">{formatDate(t.created_at)}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    t.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {t.status === 'completed' ? 'Đã xong' : 'Đang xử lý'}
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import ServicePackageManagement from './pages/ServicePackageManagement';
 import PortfolioManagement from './pages/PortfolioManagement';
 import PortfolioPublic from './pages/PortfolioPublic';
 import UserManagement from './pages/UserManagement';
+import TicketPublicDetail from './pages/TicketPublicDetail';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/project-created/:clientCode" element={<ClientPortal />} />
+            <Route path="/ticket/:ticketCode" element={<TicketPublicDetail />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/portfolio-showcase" element={<PortfolioPublic />} />
 

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\NotificationLog;
 use App\Models\Project;
 use App\Models\HostingHistory;
 use App\Models\ProjectImage;
+use App\Services\ZaloNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -146,6 +148,8 @@ class ProjectController extends Controller
 
     public function update(Request $request, Project $project)
     {
+        $oldStatus = $project->status;
+
         $validated = $request->validate([
             'client_id' => 'sometimes|exists:clients,id',
             'name' => 'sometimes|required|string|max:255',
@@ -207,6 +211,9 @@ class ProjectController extends Controller
         }
 
         $project->update($validated);
+        $project->refresh()->loadMissing('client');
+
+        $this->sendStatusZaloNotificationIfNeeded($project, $oldStatus);
 
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $index => $image) {
@@ -221,6 +228,74 @@ class ProjectController extends Controller
         }
 
         return response()->json($project->load(['client', 'images', 'hostingHistories']));
+    }
+
+    private function sendStatusZaloNotificationIfNeeded(Project $project, string $oldStatus): void
+    {
+        $newStatus = $project->status;
+        $shouldSendDemo = $oldStatus === 'in_progress' && $newStatus === 'demo';
+        $shouldSendProduction = $oldStatus === 'demo' && $newStatus === 'production';
+
+        if (!$shouldSendDemo && !$shouldSendProduction) {
+            return;
+        }
+
+        if (empty($project->client) || empty($project->client->phone)) {
+            return;
+        }
+
+        $type = $shouldSendDemo ? 'project_status_demo' : 'project_status_production';
+        $link = '';
+        if ($shouldSendDemo && !empty($project->demo_link)) {
+            $link = $project->demo_link;
+        }
+        if ($shouldSendProduction) {
+            if (!empty($project->production_link)) {
+                $link = $project->production_link;
+            } elseif (!empty($project->domain_name)) {
+                $link = 'https://' . $project->domain_name;
+            }
+        }
+
+        $clientName = $project->client->name ?? 'Quý khách';
+        $statusText = $shouldSendDemo ? 'DEMO' : 'PRODUCTION';
+        $message = "Chào {$clientName}, dự án \"{$project->name}\" đã được chuyển sang trạng thái {$statusText}.";
+        if (!empty($link)) {
+            $message .= "\nLink truy cập: {$link}";
+        }
+
+        try {
+            $res = ZaloNotificationService::sendToPhone($project->client->phone, $message, [
+                'type' => $type,
+                'project_id' => $project->id,
+                'status_from' => $oldStatus,
+                'status_to' => $newStatus,
+                'project_link' => $link,
+            ]);
+
+            NotificationLog::create([
+                'project_id' => $project->id,
+                'type' => $type,
+                'channel' => 'zalo',
+                'recipient_email' => '',
+                'recipient_phone' => $res['phone'] ?? $project->client->phone,
+                'recipient_type' => 'client',
+                'status' => 'sent',
+                'is_manual' => true,
+            ]);
+        } catch (\Throwable $e) {
+            NotificationLog::create([
+                'project_id' => $project->id,
+                'type' => $type,
+                'channel' => 'zalo',
+                'recipient_email' => '',
+                'recipient_phone' => $project->client->phone,
+                'recipient_type' => 'client',
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+                'is_manual' => true,
+            ]);
+        }
     }
 
     public function destroy(Project $project)

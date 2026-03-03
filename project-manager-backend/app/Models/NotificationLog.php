@@ -8,7 +8,8 @@ class NotificationLog extends Model
 {
     protected $fillable = [
         'project_id', 'type', 'recipient_email',
-        'recipient_type', 'status', 'error_message', 'is_manual',
+        'recipient_phone', 'recipient_type', 'channel',
+        'status', 'error_message', 'is_manual',
     ];
 
     protected $casts = [

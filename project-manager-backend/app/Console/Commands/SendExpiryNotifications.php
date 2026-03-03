@@ -11,12 +11,13 @@ use Illuminate\Console\Command;
 class SendExpiryNotifications extends Command
 {
     protected $signature = 'notifications:send-expiry {--days=7 : Số ngày trước hết hạn để gửi thông báo}';
-    protected $description = 'Tự động gửi email thông báo hosting hết hạn và thanh toán đến hạn';
+    protected $description = 'Tự động gửi thông báo email + Zalo cho hosting hết hạn và thanh toán đến hạn';
 
     public function handle(): int
     {
         $days = (int) $this->option('days');
-        $adminEmail = User::where('role', 'admin')->first()?->email;
+        $admin = User::where('role', 'admin')->first();
+        $adminEmail = $admin ? $admin->email : null;
         $today = now()->startOfDay();
         $threshold = now()->addDays($days)->endOfDay();
 
@@ -40,8 +41,12 @@ class SendExpiryNotifications extends Command
 
             $this->line("  📧 Gửi thông báo hosting: {$project->name}");
 
-            if ($project->client?->email) {
+            if ($project->client && $project->client->email) {
                 NotificationController::sendMail($project, 'hosting_expiry', $project->client->email, 'client', false);
+                $sentCount++;
+            }
+            if (NotificationController::isZaloConfigured()) {
+                NotificationController::sendZalo($project, 'hosting_expiry', false);
                 $sentCount++;
             }
             if ($adminEmail) {
@@ -66,8 +71,12 @@ class SendExpiryNotifications extends Command
 
             $this->line("  📧 Gửi nhắc thanh toán: {$project->name}");
 
-            if ($project->client?->email) {
+            if ($project->client && $project->client->email) {
                 NotificationController::sendMail($project, 'payment_due', $project->client->email, 'client', false);
+                $sentCount++;
+            }
+            if (NotificationController::isZaloConfigured()) {
+                NotificationController::sendZalo($project, 'payment_due', false);
                 $sentCount++;
             }
             if ($adminEmail) {
@@ -76,7 +85,7 @@ class SendExpiryNotifications extends Command
             }
         }
 
-        $this->info("Hoàn thành! Đã gửi {$sentCount} email.");
+        $this->info("Hoàn thành! Đã gửi {$sentCount} thông báo.");
         return Command::SUCCESS;
     }
 
